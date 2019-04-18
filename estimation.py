@@ -1,36 +1,13 @@
-<<<<<<< HEAD
 import numpy as np
 import pandas as pd
 import itertools
 import time
 import matplotlib.pyplot as plt
 from data_simulation_iteration_version import dataSimulationIteration
+from data_simulation_recursion_version import dataSimulationRecursion
 
-success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
-successRates = [success(x) for x in range(10)]
 
-start = time.time()    
-data = dataSimulationIteration(successRates, 2, 0.9)
-#data.to_pickle('data_simulation_search_iteration.pkl')
-end = time.time()
-print("It takes a total of {} seconds to simulate a dataset with 1000 individuals living 10 periods".format(end-start))
-print("\n")
-=======
-from data_simulation_iteration_version import *
-from data_simulation_recursion_version import *
-import scipy.optimize as sop
-import matplotlib.pyplot as plt
->>>>>>> 8c2459bfdaf9bd4e590edd24b2ac25a8c6ceceaa
-
-# load data and lag the data to get future work experience
-data = pd.read_pickle('data_simulation_search_iteration.pkl')
-data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
-T = 10
-mask = data.age == T-1
-data.loc[mask,'future_work_experience'] = 999
-
-def ccp_fun_inefficient(data):
-
+def ccp_fun_inefficient(data, T=10):
     ccp = np.zeros((T,T))
     W = np.zeros((T,T))
     for age in range(0,T):
@@ -45,15 +22,10 @@ def ccp_fun_inefficient(data):
         
     ccp_vec = ccp[np.tril_indices(T)]
     W = W[np.tril_indices(T)]/np.sum(W)
-    ccp_vec[np.isnan(ccp_vec)] = 999
-    
+    ccp_vec[np.isnan(ccp_vec)] = 999   
     return ccp_vec, W
 
-start = time.time()
-actual_ccp,actual_W = ccp_fun_inefficient(data)
-print("Computation time, very inefficient code: {}: ".format(time.time()-start))
-
-def ccp_fun(data):    
+def ccp_fun(data, T=10):    
     def ccp_state_fun(arg):
         age , exp =  arg
         mask_den = (data['age'] == age) & (data['work_experience'] == exp)
@@ -65,18 +37,12 @@ def ccp_fun(data):
     output = [ccp_state_fun(item) for item in filter(lambda x: x[0]>=x[1], itertools.product(range(0,T),range(0,T)))]
     ccp = np.array([item[0] for item in output])
     W = np.array([item[1] for item in output])
-    W = W / np.sum(W)
-    
+    W = W / np.sum(W) 
     return ccp , W
-    
- 
-start_time = time.time()
-actual_ccp,actual_W = ccp_fun(data)
-print("Computation time, less inefficient code: {}: ".format(time.time()-start_time))
+
 
 # estimation transition probability/success rate
-def p_acpt_fun(data):
-
+def p_acpt_fun(data, T=10):
     data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
     mask = data.age == T-1
     data.loc[mask,'future_work_experience'] = 999
@@ -92,19 +58,8 @@ def p_acpt_fun(data):
 
     return p_acpt
 
-success_rates = np.zeros((T,)) 
-success_rates[0:T-1] = p_acpt_fun(data)
-
-plt.figure()
-plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
-plt.plot(range(0,T-1),[0.5 + 0.5/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
-plt.xlabel(r'$x$')
-plt.ylabel(r'$\lambda(x)$')
-plt.legend()
-plt.show()
 
 # minimizing distance between predicted CCP and actual CCP
-
 def predictCCP(success_rates, theta, discount):
     data = dataSimulationIteration(success_rates, theta, discount)
     ccp, W = ccp_fun(data)
@@ -119,13 +74,54 @@ def estimator(parameters):
     return distance
 
 
-theta_vec = np.linspace(1.1,2.9,20)
-discount_vec = np.linspace(0.5,1,20)
-start = time.time()
-obj = [estimator(item) for item in itertools.product(theta_vec,discount_vec)]
-end = time.time()
-search_grid_sol = list(itertools.product(theta_vec,discount_vec))[np.argmin(obj)]
-print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
+
+if __name__=="__main__":
+    success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
+    successRates = [success(x) for x in range(10)]
+
+    start = time.time()    
+    data = dataSimulationIteration(successRates, 2, 0.9)
+    #data.to_pickle('data_simulation_search_iteration.pkl')
+    end = time.time()
+    print("It takes a total of {} seconds to simulate a \
+        dataset with 1000 individuals living 10 periods".format(end-start))
+    print("\n")
+    print(data.head())
+
+    # load data and lag the data to get future work experience
+    # data = pd.read_pickle('data_simulation_search_iteration.pkl')
+    data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
+    T = 10
+    mask = data.age == T-1
+    data.loc[mask,'future_work_experience'] = 999
+
+    # start = time.time()
+    # actual_ccp,actual_W = ccp_fun_inefficient(data)
+    # print("Computation time, very inefficient code: {}: ".format(time.time()-start))
+
+    start_time = time.time()
+    actual_ccp,actual_W = ccp_fun(data)
+    print("Computation time, less inefficient code: {}: ".format(time.time()-start_time))
+
+    success_rates = np.zeros((T,)) 
+    success_rates[0:T-1] = p_acpt_fun(data)
+
+    # plt.figure()
+    # plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
+    # plt.plot(range(0,T-1),[0.5 + 0.5/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
+    # plt.xlabel(r'$x$')
+    # plt.ylabel(r'$\lambda(x)$')
+    # plt.legend()
+    # plt.show()
+
+    ## estimation procedure
+    theta_vec = np.linspace(1.1,2.9,20)
+    discount_vec = np.linspace(0.5,1,20)
+    start = time.time()
+    obj = [estimator(item) for item in itertools.product(theta_vec,discount_vec)]
+    end = time.time()
+    search_grid_sol = list(itertools.product(theta_vec,discount_vec))[np.argmin(obj)]
+    print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
 
 
 

@@ -4,11 +4,11 @@ import pandas as pd
 import functools, itertools
 import os, time, random
 
-
 def expectedMax(*args, mu=0, beta=1, size=2000):
     # compute Emax[val1+epsilon1, val2+epsilon2]
     np.random.seed(100)
-    total_values = [args[i]+np.random.gumbel(mu, beta, size) for i in range(len(args))]
+    total_values = [args[i]+np.random.gumbel(mu, beta, size) \
+    for i in range(len(args))]
     return np.average([max(x) for x in zip(*total_values)])
 
 ## success rate of job application
@@ -33,8 +33,7 @@ def saveData(res, T, N):
     return data
 
 # simulate data given the parameter
-def dataSimulationRecursion(theta, discount, N=1000, T=10):
-    successRates = [success(x) for x in range(10)]
+def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
     utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
     utilityHome = [0]*T
     @memoize
@@ -100,7 +99,8 @@ def dataSimulationRecursion(theta, discount, N=1000, T=10):
 
 if __name__=="__main__":
     start = time.time()
-    data = dataSimulationRecursion(2, 0.9)
+    successRates = [success(x) for x in range(10)]
+    data = dataSimulationRecursion(2, 0.9, successRates)
     data.to_pickle('simulation_search_data.pkl')
     print(time.time()-start)
     print(data.head())

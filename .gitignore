@@ -1,6 +1,7 @@
 # Don't track content of these folders or files
-
+__pycache__/
 .ipynb_checkpoints
 .pkl
 .ipynb
-
+.pyc
+.DS_Store
