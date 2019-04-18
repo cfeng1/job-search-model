@@ -1,9 +1,7 @@
-import numpy as np
-import pandas as pd
-import functools, itertools
-import os, time, random
-import matplotlib.pyplot as plt
+from data_simulation_iteration_version import *
+from data_simulation_recursion_version import *
 import scipy.optimize as sop
+import matplotlib.pyplot as plt
 
 # load data and lag the data to get future work experience
 data = pd.read_pickle('simulation_search_data.pkl')

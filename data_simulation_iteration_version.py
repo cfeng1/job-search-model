@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import functools, itertools
 import os, time, random
-import matplotlib.pyplot as plt
-import scipy.optimize as sop
 
 ## success rate of job application
 success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
