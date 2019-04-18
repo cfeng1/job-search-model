@@ -1,9 +1,6 @@
 # Don't track content of these folders or files
 
 .ipynb_checkpoints
-<<<<<<< Updated upstream
 .pkl
 .ipynb
-=======
-.pkl
->>>>>>> Stashed changes
+
