@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import numpy as np
 import pandas as pd
 import itertools
@@ -14,6 +15,12 @@ data = dataSimulationIteration(successRates, 2, 0.9)
 end = time.time()
 print("It takes a total of {} seconds to simulate a dataset with 1000 individuals living 10 periods".format(end-start))
 print("\n")
+=======
+from data_simulation_iteration_version import *
+from data_simulation_recursion_version import *
+import scipy.optimize as sop
+import matplotlib.pyplot as plt
+>>>>>>> 8c2459bfdaf9bd4e590edd24b2ac25a8c6ceceaa
 
 # load data and lag the data to get future work experience
 data = pd.read_pickle('data_simulation_search_iteration.pkl')

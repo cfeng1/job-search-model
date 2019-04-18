@@ -1,5 +1,10 @@
 import numpy as np
 import pandas as pd
+<<<<<<< HEAD
+=======
+import functools, itertools
+import os, time, random
+>>>>>>> 8c2459bfdaf9bd4e590edd24b2ac25a8c6ceceaa
 
 
 def dataSimulationIteration(successRates, theta, discount, N=3000, T=10):

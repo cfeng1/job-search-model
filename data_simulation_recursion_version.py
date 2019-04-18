@@ -1,11 +1,9 @@
 # job search simulation functions
-
 import numpy as np
 import pandas as pd
 import functools, itertools
 import os, time, random
-import matplotlib.pyplot as plt
-import scipy.optimize as sop
+
 
 def expectedMax(*args, mu=0, beta=1, size=2000):
     # compute Emax[val1+epsilon1, val2+epsilon2]
@@ -15,7 +13,6 @@ def expectedMax(*args, mu=0, beta=1, size=2000):
 
 ## success rate of job application
 success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
-
 
 # decorator function: function that takes another function as argument
 def memoize(function):
@@ -101,8 +98,9 @@ def dataSimulationRecursion(theta, discount, N=1000, T=10):
     data = saveData(res, T, N)
     return data
 
-start = time.time()
-data = dataSimulationRecursion(2, 0.9)
-data.to_pickle('simulation_search_data.pkl')
-print(time.time()-start)
-print(data.head())
+if __name__=="__main__":
+    start = time.time()
+    data = dataSimulationRecursion(2, 0.9)
+    data.to_pickle('simulation_search_data.pkl')
+    print(time.time()-start)
+    print(data.head())
