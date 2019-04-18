@@ -1,23 +1,16 @@
 import numpy as np
 import pandas as pd
-import functools, itertools
-import os, time, random
-import matplotlib.pyplot as plt
-import scipy.optimize as sop
 
-## success rate of job application
-success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
-successRates = [success(x) for x in range(10)]
 
-def dataSimulationIteration(successRates, theta, discount, N=1000, T=10):
-    N_sim = 2000
+def dataSimulationIteration(successRates, theta, discount, N=3000, T=10):
+    N_sim = 5000
     utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
     utilityHome = [0]*T
     # no need to allocate space to store
-    continuation_value = np.zeros((T,T))
+    continuation_value = np.zeros((T+1,T+1))
     epsilon_work = np.random.gumbel(0,1,size = N_sim)
     epsilon_home = np.random.gumbel(0,1,size = N_sim)
-    success_shock_sim = np.random.random(size=N_sim)   
+    success_shock_sim = np.random.random(size = N_sim)   
 
     for age in range(T-1, -1, -1): 
         for exp in range(age, -1, -1):              
@@ -29,8 +22,8 @@ def dataSimulationIteration(successRates, theta, discount, N=1000, T=10):
             value_hw[:,0] = (utilityHome[exp] + epsilon_home + 
                              discount*continuation_value[age+1,exp])
             value_hw[:,1] = epsilon_work + success_sim*(
-                utilityWork[exp] + discount*continuation_value[age+1,exp+1]) + 
-            (1-success_sim)*(utilityHome[exp] + discount*continuation_value[age+1,exp])
+                utilityWork[exp] + discount*continuation_value[age+1,exp+1]) + (
+                1-success_sim)*(utilityHome[exp] + discount*continuation_value[age+1,exp])
 
             continuation_value[age,exp] = np.mean(np.max(value_hw,axis=1))
     
@@ -69,13 +62,7 @@ def dataSimulationIteration(successRates, theta, discount, N=1000, T=10):
         
         matrix_sim[i*T:(i+1)*T,:] = individualSimulation(i)
         
-    df_sim = pd.DataFrame(matrix_sim, columns=["individual", "choice", "experience", "age"],dtype = int)
+    df_sim = pd.DataFrame(matrix_sim, columns=["individual", "choice", "work_experience", "age"],dtype = int)
             
     return df_sim
 
-start = time.time()    
-bla = dataSimulationIteration(successRates, 2, 0.9)
-bla.to_pickle('bla_simulation_search_data.pkl')
-end = time.time()
-print(end-start)
-print(bla.head())

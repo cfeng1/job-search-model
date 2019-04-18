@@ -1,12 +1,22 @@
 import numpy as np
 import pandas as pd
-import functools, itertools
-import os, time, random
+import itertools
+import time
 import matplotlib.pyplot as plt
-import scipy.optimize as sop
+from data_simulation_iteration_version import dataSimulationIteration
+
+success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
+successRates = [success(x) for x in range(10)]
+
+start = time.time()    
+data = dataSimulationIteration(successRates, 2, 0.9)
+#data.to_pickle('data_simulation_search_iteration.pkl')
+end = time.time()
+print("It takes a total of {} seconds to simulate a dataset with 1000 individuals living 10 periods".format(end-start))
+print("\n")
 
 # load data and lag the data to get future work experience
-data = pd.read_pickle('simulation_search_data.pkl')
+data = pd.read_pickle('data_simulation_search_iteration.pkl')
 data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
 T = 10
 mask = data.age == T-1
@@ -33,7 +43,6 @@ def ccp_fun_inefficient(data):
     return ccp_vec, W
 
 start = time.time()
-data = pd.read_pickle('simulation_search_data.pkl')
 actual_ccp,actual_W = ccp_fun_inefficient(data)
 print("Computation time, very inefficient code: {}: ".format(time.time()-start))
 
@@ -55,7 +64,6 @@ def ccp_fun(data):
     
  
 start_time = time.time()
-data = pd.read_pickle('simulation_search_data.pkl')
 actual_ccp,actual_W = ccp_fun(data)
 print("Computation time, less inefficient code: {}: ".format(time.time()-start_time))
 
@@ -77,12 +85,12 @@ def p_acpt_fun(data):
 
     return p_acpt
 
-data = pd.read_pickle('simulation_search_data.pkl')
-success_rates = p_acpt_fun(data)
+success_rates = np.zeros((T,)) 
+success_rates[0:T-1] = p_acpt_fun(data)
 
 plt.figure()
-plt.plot(range(0,9),success_rates,'r',label='Empirical')
-plt.plot(range(0,9),[0.5 + 0.5/(T-1) * item for item in range(0,9)],'b',label = 'True')
+plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
+plt.plot(range(0,T-1),[0.5 + 0.5/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
 plt.xlabel(r'$x$')
 plt.ylabel(r'$\lambda(x)$')
 plt.legend()
@@ -91,21 +99,26 @@ plt.show()
 # minimizing distance between predicted CCP and actual CCP
 
 def predictCCP(success_rates, theta, discount):
-    data = dataSimulation(successRates, theta, discount)
+    data = dataSimulationIteration(success_rates, theta, discount)
     ccp, W = ccp_fun(data)
     return ccp, W
 
 def estimator(parameters):
-    global actual_ccp, success_rate
+    global actual_ccp, success_rates
     theta = parameters[0]
     discount = parameters[1]
     predicted_ccp, W = predictCCP(success_rates, theta, discount)
     distance = np.sum(np.multiply((predicted_ccp-actual_ccp)**2,W))
     return distance
 
+
 theta_vec = np.linspace(1.1,2.9,20)
 discount_vec = np.linspace(0.5,1,20)
+start = time.time()
 obj = [estimator(item) for item in itertools.product(theta_vec,discount_vec)]
+end = time.time()
+search_grid_sol = list(itertools.product(theta_vec,discount_vec))[np.argmin(obj)]
+print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
 
 
 
