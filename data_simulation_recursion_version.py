@@ -4,7 +4,7 @@ import pandas as pd
 import functools, itertools
 import os, time, random
 
-def expectedMax(*args, mu=0, beta=1, size=2000):
+def expectedMax(*args, mu=0, beta=0.15, size=2000):
     # compute Emax[val1+epsilon1, val2+epsilon2]
     np.random.seed(100)
     total_values = [args[i]+np.random.gumbel(mu, beta, size) \
@@ -35,16 +35,18 @@ def saveData(res, T, N):
 # simulate data given the parameter
 def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
     # print(successRates)
-    utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
-    continuation_values = np.zeros((T+1,T+1))
-    # utilityHome = [0]*T
+    # utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
+    # continuation_values = np.zeros((T,T))
+    theta0, theta1 = theta
+    utilityWork = [theta0+theta1*x/T for x in range(0,T)]
     @memoize
     def continuationValue(arg_tuple):
-        nonlocal discount, successRates, continuation_values
+        nonlocal discount, successRates
+        # nonlocal continuation_values
         t, T, work_experience, current_choice = arg_tuple
         work_experience = int(work_experience)
         if t>=T-1:
-            continuation_values[t][work_experience] = 0
+            # continuation_values[t][work_experience] = 0
             return 0
         else:
             success_rate = successRates[work_experience]
@@ -68,8 +70,7 @@ def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
                 continuation_value = discount*(
                     success_rate*expectedMax(value_home_success, value_work_success)+
                     (1-success_rate)*expectedMax(value_home, value_work))
-            # print(t, work_experience, continuation_value)
-            continuation_values[t][work_experience] = continuation_value
+            # continuation_values[t][work_experience] = continuation_value
             return continuation_value
         
     def generateChoices(T, successRates, discount, mu=0, beta=1):
@@ -96,13 +97,13 @@ def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
         return work_experiences, choices
     res = [generateChoices(T, successRates, discount) for i in range(N)]
     data = saveData(res, T, N)
-    print(continuation_values)
+    # print(continuation_values)
     return data
 
 if __name__=="__main__":
     start = time.time()
     successRates = [success(x) for x in range(10)]
-    data = dataSimulationRecursion(2, 0.9, successRates)
+    data = dataSimulationRecursion((-0.3,2), 0.9, successRates)
     data.to_pickle('simulation_search_recursion.pkl')
     print(time.time()-start)
     # print(data.head(10))
