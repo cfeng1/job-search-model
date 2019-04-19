@@ -12,7 +12,7 @@ def expectedMax(*args, mu=0, beta=1, size=2000):
     return np.average([max(x) for x in zip(*total_values)])
 
 ## success rate of job application
-success = lambda work_experience, T=10: (work_experience/(T-1))*0.5+0.5
+success = lambda work_experience, T=10: (work_experience/(T-1))*0.2+0.8
 
 # decorator function: function that takes another function as argument
 def memoize(function):
@@ -34,19 +34,22 @@ def saveData(res, T, N):
 
 # simulate data given the parameter
 def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
+    # print(successRates)
     utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
-    utilityHome = [0]*T
+    continuation_values = np.zeros((T+1,T+1))
+    # utilityHome = [0]*T
     @memoize
     def continuationValue(arg_tuple):
-        nonlocal discount, successRates
+        nonlocal discount, successRates, continuation_values
         t, T, work_experience, current_choice = arg_tuple
+        work_experience = int(work_experience)
         if t>=T-1:
+            continuation_values[t][work_experience] = 0
             return 0
         else:
             success_rate = successRates[work_experience]
             state_tuple_home = (t+1, T, work_experience, 1)
-            value_home = (utilityHome[work_experience]+
-                             continuationValue(state_tuple_home))
+            value_home = continuationValue(state_tuple_home)
             state_tuple_work = (t+1, T, work_experience, 2)
             value_work = (utilityWork[work_experience]+
                              continuationValue(state_tuple_work))
@@ -57,9 +60,7 @@ def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
                 # now work -> state variable next period may change
                 # if job application succeeds
                 state_tuple_home_success = (t+1, T, work_experience+1, 1)
-                value_home_success = (utilityHome[work_experience+1]+
-                             continuationValue(state_tuple_home_success))
-                # if job application fails
+                value_home_success = continuationValue(state_tuple_home_success)
                 state_tuple_work_success = (t+1, T, work_experience+1, 2)
                 value_work_success = (utilityWork[work_experience+1]+
                              continuationValue(state_tuple_work_success))
@@ -67,6 +68,8 @@ def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
                 continuation_value = discount*(
                     success_rate*expectedMax(value_home_success, value_work_success)+
                     (1-success_rate)*expectedMax(value_home, value_work))
+            # print(t, work_experience, continuation_value)
+            continuation_values[t][work_experience] = continuation_value
             return continuation_value
         
     def generateChoices(T, successRates, discount, mu=0, beta=1):
@@ -79,28 +82,27 @@ def dataSimulationRecursion(theta, discount, successRates, N=1000, T=10):
         t = 0
         while t<=T-1:
             success_rate = successRates[work_experience]
-            job_search = random.random()
+            job_search = np.random.binomial(n=1, p=success_rate)
             state_tuple_home = (t, T, work_experience, 1)
             state_tuple_work = (t, T, work_experience, 2)
-            value_home = (utilityHome[work_experience]+actual_shock_home[t]+
-                          discount*continuationValue(state_tuple_home))
+            value_home = actual_shock_home[t]+continuationValue(state_tuple_home)
             value_work = (actual_shock_work[t]+success_rate*utilityWork[work_experience]+
-                          (1-success_rate)*utilityHome[work_experience]+
-                          discount*continuationValue(state_tuple_work))
+                          continuationValue(state_tuple_work))
             choices += [1+(value_home<=value_work)]
             if t<T-1:
-                work_experience += (job_search<=success_rate)*(value_home<=value_work)
+                work_experience += int(job_search*(value_home<=value_work))
                 work_experiences += [work_experience]
             t += 1
         return work_experiences, choices
     res = [generateChoices(T, successRates, discount) for i in range(N)]
     data = saveData(res, T, N)
+    print(continuation_values)
     return data
 
 if __name__=="__main__":
     start = time.time()
     successRates = [success(x) for x in range(10)]
     data = dataSimulationRecursion(2, 0.9, successRates)
-    data.to_pickle('simulation_search_data.pkl')
+    data.to_pickle('simulation_search_recursion.pkl')
     print(time.time()-start)
-    print(data.head())
+    # print(data.head(10))
