@@ -84,7 +84,7 @@ if __name__=="__main__":
     np.product(successRates)
     
     # start = time.time()    
-    data = dataSimulationIteration(successRates, theta=2, discount=.9)
+    data = dataSimulationIteration(successRates, theta=[-0.3,2], discount=.9)
     
     #print(np.round(continuation_value,2))
     # data.to_pickle('data_simulation_search_iteration.pkl')
@@ -124,16 +124,17 @@ if __name__=="__main__":
     plt.show()
 
     # estimation procedure
-    theta_vec = np.linspace(1.01,4.01,100)
+    theta0_vec = np.linspace(-1,0,30)
+    theta1_vec = np.linspace(1.0,4.0,30)
     # discount_vec = np.linspace(0.5,1,20)
     print("data iteration, simulation iteration")
     start = time.time()
-    # obj = [estimator(item) for item in itertools.product(theta_vec,discount_vec)]
-    obj = [estimator(item) for item in [(i, 0.9) for i in theta_vec]]
+    obj = [estimator((item,0.9)) for item in itertools.product(theta0_vec,theta1_vec,)]
+    #obj = [estimator(item) for item in [(i, 0.9) for i in theta_vec]]
     end = time.time()
-    search_grid_sol = [(i, 0.9) for i in theta_vec][np.argmin(obj)]
+    search_grid_sol = list(itertools.product(theta0_vec,theta1_vec))[np.argmin(obj)]
     print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
-    plt.plot(theta_vec,obj)
+    #plt.plot(theta_vec,obj)
 
 
 

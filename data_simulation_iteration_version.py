@@ -4,8 +4,10 @@ import time
 
 
 def dataSimulationIteration(success_rates, theta, discount, N=1000, T=10):
+    theta0 = theta[0]
+    theta1 = theta[1]
     N_sim = 2000
-    utilityWork = [-.3+theta*x/T for x in range(0,T)]
+    utilityWork = [theta0+theta1*x/T for x in range(0,T)]
     utilityHome = [0]*T
     # no need to allocate space to store
     continuation_value = np.zeros((T+1,T+1))
@@ -24,7 +26,7 @@ def dataSimulationIteration(success_rates, theta, discount, N=1000, T=10):
                 1-success_rate)*(utilityHome[exp] + discount*continuation_value[age+1,exp])
 
             continuation_value[age,exp] = np.mean(np.max(value_hw,axis=1))
-    
+    print(continuation_value)
     def individualSimulation(i):  
         nonlocal T, success_rates, continuation_value
 
