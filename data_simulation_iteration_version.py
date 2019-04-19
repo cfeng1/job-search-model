@@ -1,17 +1,16 @@
 import numpy as np
 import pandas as pd
-import functools, itertools
-import os, time, random
+import time
 
 
 def dataSimulationIteration(success_rates, theta, discount, N=1000, T=10):
     N_sim = 2000
-    utilityWork = [-np.exp(-theta*x)+0.5 for x in range(0,T)]
+    utilityWork = [-.3+theta*x/T for x in range(0,T)]
     utilityHome = [0]*T
     # no need to allocate space to store
     continuation_value = np.zeros((T+1,T+1))
-    epsilon_work = np.random.gumbel(0,1,size = N_sim)
-    epsilon_home = np.random.gumbel(0,1,size = N_sim)  
+    epsilon_work = np.random.gumbel(0,.15,size = N_sim)
+    epsilon_home = np.random.gumbel(0,.15 ,size = N_sim)  
 
     for age in range(T-1, -1, -1): 
         for exp in range(age, -1, -1):              
@@ -28,8 +27,6 @@ def dataSimulationIteration(success_rates, theta, discount, N=1000, T=10):
     
     def individualSimulation(i):  
         nonlocal T, success_rates, continuation_value
-        if i==1:
-            print(continuation_value)
 
         epsilon_work_i = np.random.gumbel(0,1,size = T)
         epsilon_home_i = np.random.gumbel(0,1,size = T)

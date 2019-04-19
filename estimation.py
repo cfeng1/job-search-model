@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import itertools
 import time
+import matplotlib.pyplot as plt
 # import matplotlib.pyplot as plt
 from data_simulation_iteration_version import dataSimulationIteration
 from data_simulation_recursion_version import dataSimulationRecursion
@@ -68,7 +69,7 @@ def predictCCP(success_rates, theta, discount):
     return ccp, W
 
 def estimator(parameters):
-    global actual_ccp, success_rates
+    global actual_ccp, success_rates, actual_W
     theta = parameters[0]
     discount = parameters[1]
     predicted_ccp, W = predictCCP(success_rates, theta, discount)
@@ -80,9 +81,12 @@ def estimator(parameters):
 if __name__=="__main__":
     success = lambda work_experience, T=10: (work_experience/(T-1))*0.2+0.8
     successRates = [success(x) for x in range(10)]
-
+    np.product(successRates)
+    
     # start = time.time()    
-    data = dataSimulationIteration(successRates, theta=1.5, discount=0.8)
+    data = dataSimulationIteration(successRates, theta=2, discount=.9)
+    
+    #print(np.round(continuation_value,2))
     # data.to_pickle('data_simulation_search_iteration.pkl')
     # end = time.time()
     # print("It takes a total of {} seconds to simulate a \
@@ -98,9 +102,9 @@ if __name__=="__main__":
     mask = data.age == T-1
     data.loc[mask,'future_work_experience'] = 999
 
-    # start = time.time()
-    # actual_ccp,actual_W = ccp_fun_inefficient(data)
-    # print("Computation time, very inefficient code: {}: ".format(time.time()-start))
+    start = time.time()
+    actual_ccp,actual_W = ccp_fun_inefficient(data)
+    print("Computation time, very inefficient code: {}: ".format(time.time()-start))
 
     start_time = time.time()
     actual_ccp, actual_W = ccp_fun(data)
@@ -111,25 +115,25 @@ if __name__=="__main__":
     # replace nan to 0
     success_rates = [x if np.isnan(x)==False else 0 for x in success_rates]
 
-    # plt.figure()
-    # plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
-    # plt.plot(range(0,T-1),[0.5 + 0.5/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
-    # plt.xlabel(r'$x$')
-    # plt.ylabel(r'$\lambda(x)$')
-    # plt.legend()
-    # plt.show()
+    plt.figure()
+    plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
+    plt.plot(range(0,T-1),[0.8 + 0.2/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
+    plt.xlabel(r'$x$')
+    plt.ylabel(r'$\lambda(x)$')
+    plt.legend()
+    plt.show()
 
-    ## estimation procedure
-    theta_vec = np.linspace(1.01,4.01,20)
+    # estimation procedure
+    theta_vec = np.linspace(1.01,4.01,100)
     # discount_vec = np.linspace(0.5,1,20)
     print("data iteration, simulation iteration")
     start = time.time()
     # obj = [estimator(item) for item in itertools.product(theta_vec,discount_vec)]
-    obj = [estimator(item) for item in [(i, 0.8) for i in theta_vec]]
+    obj = [estimator(item) for item in [(i, 0.9) for i in theta_vec]]
     end = time.time()
-    search_grid_sol = [(i, 0.8) for i in theta_vec][np.argmin(obj)]
+    search_grid_sol = [(i, 0.9) for i in theta_vec][np.argmin(obj)]
     print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
-
+    plt.plot(theta_vec,obj)
 
 
 
