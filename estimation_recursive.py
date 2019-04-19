@@ -1,62 +1,53 @@
 import numpy as np
 import pandas as pd
-import itertools
+import itertools, functools
 import time
-import matplotlib.pyplot as plt
-# from data_simulation_iteration_version import dataSimulationIteration
 from data_simulation_recursion_version import dataSimulationRecursion
-
 
 def ccp_fun(data, T=10):    
     def ccp_state_fun(arg):
         age , exp =  arg
         mask_den = (data['age'] == age) & (data['work_experience'] == exp)
         mask_num = (mask_den) & (data['choice'] == 2) 
-        # W_state = np.sum(mask_den)
+        # weight ccp by number of observations
         W_state = len(data[mask_den])
-        # ccp_state = np.sum(mask_num) / W_state if W_state>0 else 999
         ccp_state = len(data[mask_num])/W_state if W_state>0 else 999
         return ccp_state, W_state
     output = [ccp_state_fun(item) for item in filter(lambda x: x[0]>=x[1], 
         itertools.product(range(T),range(T)))]
     ccp = np.array([item[0] for item in output])
     W = np.array([item[1] for item in output])
-    W = W / np.sum(W) 
+    W = W/np.sum(W) 
     return ccp, W
-
 
 # estimation transition probability/success rate
 def p_acpt_fun(data, T=10):
     data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
     mask = data.age == T-1
-    data.loc[mask,'future_work_experience'] = 999
-    
+    data.loc[mask,'future_work_experience'] = 999    
     p_acpt = np.zeros((T-1,))
     for i in range(T-1):
-        num = np.sum((data['age'] < T-1) & (data['work_experience'] == i) & 
-            (data['future_work_experience'] == i + 1) & (data['choice'] == 2))
-        den = np.sum((data['age'] < T-1) & (data['work_experience'] == i) & 
-            (data['choice'] == 2)) 
+        num = len(data[(data['age'] < T-1) & (data['work_experience'] == i) & 
+            (data['future_work_experience'] == i + 1) & (data['choice'] == 2)])
+        den = len(data[(data['age'] < T-1) & (data['work_experience'] == i) & 
+            (data['choice'] == 2)]) 
         if den > 0:
-            p_acpt[i] = num / den
+            p_acpt[i] = num/den
         else:
             p_acpt[i] = np.nan
-
     return p_acpt
 
-
 # minimizing distance between predicted CCP and actual CCP
-def predictCCP(success_rates, theta, discount):
-    # data = dataSimulationIteration(success_rates, theta, discount)
+def predictCCPRecursion(success_rates, theta, discount):
     data = dataSimulationRecursion(theta, discount, success_rates)
     ccp, W = ccp_fun(data)
     return ccp, W
 
-def estimator(parameters):
-    global actual_ccp, success_rates, actual_W
+def estimator(parameters, actual_ccp, success_rates, actual_W):
+    # global actual_ccp, success_rates, actual_W
     theta = parameters[0]
     discount = parameters[1]
-    predicted_ccp, W = predictCCP(success_rates, theta, discount)
+    predicted_ccp, W = predictCCPRecursion(success_rates, theta, discount)
     distance = np.sum(np.multiply((predicted_ccp-actual_ccp)**2,W))
     return distance
 
@@ -65,10 +56,10 @@ if __name__=="__main__":
     success = lambda work_experience, T=10: (work_experience/(T-1))*0.2+0.8
     successRates = [success(x) for x in range(10)]
       
-    data = dataSimulationRecursion(theta=(-0.3,2), discount=0.9, successRates=successRates)
+    data = dataSimulationRecursion(theta=(-0.3,2), discount=0.9, 
+        successRates=successRates)
 
-    # load data and lag the data to get future work experience
-    # data = pd.read_pickle('simulation_search_recursion.pkl')
+    # lag the data to get future work experience
     data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
     T = 10
     mask = data.age == T-1
@@ -77,6 +68,7 @@ if __name__=="__main__":
     start_time = time.time()
     actual_ccp, actual_W = ccp_fun(data)
     print("Computation time, less inefficient code: {}: ".format(time.time()-start_time))
+    print('actuall CCPs for work are: ')
     print(actual_ccp)
 
     success_rates = np.zeros((T,)) 
@@ -93,8 +85,10 @@ if __name__=="__main__":
     discount_vec = np.linspace(0.5,1,7)
     print("data iteration, simulation iteration")
     start = time.time()
+    estimatorNew = functools.partial(estimator, actual_ccp=actual_ccp, 
+                            success_rates=success_rates, actual_W=actual_W)
     parameter_combos = itertools.product(itertools.product(theta0_vec,theta1_vec), discount_vec)
-    obj = [estimator(item) for item in parameter_combos]
+    obj = [estimatorNew(item) for item in parameter_combos]
     end = time.time()
     parameter_combos = itertools.product(itertools.product(theta0_vec,theta1_vec), discount_vec)
     search_grid_sol = list(parameter_combos)[np.argmin(obj)]
