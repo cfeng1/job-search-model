@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import itertools, functools
 import time
-import matplotlib.pyplot as plt
 from data_simulation_iteration_version import dataSimulationIteration
+from data_simulation_recursion_version import dataSimulationRecursion
 
 def ccp_fun_inefficient(data, T=10):
     ccp = np.zeros((T,T))
@@ -58,74 +58,84 @@ def p_acpt_fun(data, T=10):
     return p_acpt
 
 # minimizing distance between predicted CCP and actual CCP
-def predictCCP(success_rates, theta, discount):
-    data = dataSimulationIteration(success_rates, theta, discount)
+# recursion version
+def predictCCPRecursion(success_rates, parameters):
+    data = dataSimulationRecursion(parameters, success_rates)
     ccp, W = ccp_fun(data)
     return ccp, W
 
-def estimator(parameters, actual_ccp, success_rates, actual_W):
-    theta = parameters[0]
-    discount = parameters[1]
-    predicted_ccp, W = predictCCP(success_rates, theta, discount)
+def estimatorRecursion(parameters, actual_ccp, success_rates, actual_W):
+    predicted_ccp, W = predictCCPRecursion(success_rates, parameters)
     distance = np.sum(np.multiply((predicted_ccp-actual_ccp)**2,W))
     return distance
 
+# iteration version
+def predictCCP(success_rates, parameters):
+    data = dataSimulationIteration(success_rates, parameters)
+    ccp, W = ccp_fun(data)
+    return ccp, W
+
+def estimatorIteration(actual_ccp,success_rates,parameters):
+    predicted_ccp, W = predictCCP(success_rates, parameters)
+    distance = np.sum(np.multiply((predicted_ccp-actual_ccp)**2,W))
+    return distance
 
 if __name__=="__main__":
-    success = lambda work_experience, T=10: (work_experience/(T-1))*0.2+0.8
-    successRates = [success(x) for x in range(10)]
-    np.product(successRates)
-    
-    start = time.time()    
-    data = dataSimulationIteration(successRates, theta=[-0.3,2], discount=.9)
-    data.to_pickle('data_simulation_search_iteration.pkl')
-    end = time.time()
-    print("It takes a total of {} seconds to simulate a \
-        dataset with 1000 individuals living 10 periods".format(end-start))
-    print("\n")
-    print(data.head())
-
-    # load data and lag the data to get future work experience
-    # data = pd.read_pickle('simulation_search_iteration.pkl')
-    data['future_work_experience'] = data['work_experience'].shift(-1).values.astype(int)
+    ######## RECURSION VERSION OF ESTIMATION
+    data_recursion = pd.read_pickle('data_recursion.pkl')
+    # estimate ccp and weights
+    actual_ccp, actual_W = ccp_fun(data_recursion)
+    # estimate success rates
     T = 10
-    mask = data.age == T-1
-    data.loc[mask,'future_work_experience'] = 999
-
-    start = time.time()
-    actual_ccp,actual_W = ccp_fun_inefficient(data)
-    print("Computation time, very inefficient code: {}: ".format(time.time()-start))
-
-    start_time = time.time()
-    actual_ccp, actual_W = ccp_fun(data)
-    print("Computation time, less inefficient code: {}: ".format(time.time()-start_time))
-
     success_rates = np.zeros((T,)) 
-    success_rates[0:T-1] = p_acpt_fun(data)
+    success_rates[0:T-1] = p_acpt_fun(data_recursion)
     # replace nan to 0
     success_rates = [x if np.isnan(x)==False else 0 for x in success_rates]
-
-    # plt.figure()
-    # plt.plot(range(0,T-1),success_rates[0:T-1],'r',label='Empirical')
-    # plt.plot(range(0,T-1),[0.8 + 0.2/(T-1) * item for item in range(0,T-1)],'b',label = 'True')
-    # plt.xlabel(r'$x$')
-    # plt.ylabel(r'$\lambda(x)$')
-    # plt.legend()
-    # plt.show()
-
-    # estimation procedure
-    theta0_vec = np.linspace(-1,0,30)
-    theta1_vec = np.linspace(1.0,4.0,30)
-    # discount_vec = np.linspace(0.5,1,20)
+    theta0_vec = np.linspace(-1,0,7)
+    theta1_vec = np.linspace(1,4,7)
+    discount_vec = np.linspace(0.5,1,7)
+    # grid search for minimum distance estimation
     start = time.time()
-    estimatorNew = functools.partial(estimator, actual_ccp=actual_ccp, 
+    estimatorNewRecursion = functools.partial(estimatorRecursion, actual_ccp=actual_ccp, 
                             success_rates=success_rates, actual_W=actual_W)
-    obj = [estimatorNew((item,0.9)) for item in itertools.product(theta0_vec,theta1_vec)]
-    #obj = [estimator(item) for item in [(i, 0.9) for i in theta_vec]]
+    parameter_combos = itertools.product(theta0_vec, theta1_vec, discount_vec)
+    obj = [estimatorNewRecursion(item) for item in parameter_combos]
     end = time.time()
-    search_grid_sol = list(itertools.product(theta0_vec,theta1_vec))[np.argmin(obj)]
-    print("The solution from the search-grid algorithm is :{}.\n It took a total of {} seconds to compute".format(search_grid_sol,end-start))
-    #plt.plot(theta_vec,obj)
+    # find parameters that gives the minimum distance
+    parameter_combos = itertools.product(theta0_vec, theta1_vec, discount_vec)
+    search_grid_sol = list(parameter_combos)[np.argmin(obj)]
+    print("The solution from the search-grid algorithm is :{}.\n \
+        It took a total of {} seconds to compute".format(search_grid_sol, end-start))
+    # traditional optimization doesn't work well with stochastic objective function
+    from scipy.optimize import minimize as smin
+    print(smin(fun=estimatorNewRecursion, x0=(0, 0, 0.1), method="Powell"))
+    
+    ######## ITERATION VERSION OF ESTIMATION
+    data_iteration = pd.read_pickle('data_iteration.pkl')
+    actual_ccp, actual_W = ccp_fun(data_iteration)
+    # estimate success rates
+    T = 10
+    success_rates = np.zeros((T,)) 
+    success_rates[0:T-1] = p_acpt_fun(data_iteration)
+    # replace nan to 0
+    success_rates = [x if np.isnan(x)==False else 0 for x in success_rates]
+    # grid search for minimum distance estimation
+    theta0_vec = np.linspace(-1,0,15)
+    theta1_vec = np.linspace(0,2,15)
+    discount_vec = np.linspace(0.85,0.95,3)
 
-
-
+    start = time.time()
+    obj = list(map(functools.partial(estimatorIteration,actual_ccp,success_rates),
+                   itertools.product(theta0_vec,theta1_vec,discount_vec)))
+    search_grid_sol = list(itertools.product(theta0_vec,theta1_vec,discount_vec))[np.argmin(obj)]
+    end = time.time()
+    print("The solution from the search-grid algorithm is :{}.\n \
+            It took a total of {} seconds to compute".format(search_grid_sol,np.round(end-start),2))
+    # Bayesian optimization
+    from hyperopt import fmin, hp, tpe, Trials
+    tpe_trials = Trials()
+    tpe_algo = tpe.suggest
+    space = [hp.normal('theta0', 0, 2), hp.normal('theta1', 0, 2), hp.uniform('discount', 0.1, 1)]
+    estimatorNew = functools.partial(estimatorIteration,actual_ccp,success_rates)
+    best = fmin(fn = estimatorNew, space = space, algo=tpe.suggest, max_evals = 1000)
+    print(best)
