@@ -7,7 +7,7 @@ This project is a quick overview of how to simulate and estimate a dynamic struc
   - presentation/estimation_presentation.slides.html
   - presentation/estimation_presentation.ipynb
 
-- Estimation 1 (simulation by iteration): 
+- Estimation: 
   - Recursion simulation: data_simulation_iteration_version.py
   - Iteration simulation: data_simulation_recursion_version.py
   - Estimation file: estimation.py
