@@ -80,6 +80,67 @@ def estimatorIteration(actual_ccp,success_rates,parameters):
     distance = np.sum(np.multiply((predicted_ccp-actual_ccp)**2,W))
     return distance
 
+# resampling individuals with replacement
+def getResample(data):
+    individuals = list(set(data.individual.values))
+    groups = data.groupby('individual')
+    subsample = pd.concat([groups.get_group(i) for i in resample(
+                            individuals, replace=True, n_samples=len(individuals))])
+    return subsample
+
+# calculate standard errors
+def standardErrors(coefficients):
+    avg = np.average(coefficients)
+    se = np.sqrt(np.sum((coefficients-avg)**2)/(len(coefficients)-1))
+    return se
+
+# parallel bootstrap
+def estimationRecursionGrid(args):
+    # Here the underlying optimization uses grid search
+    # we can implement other optimization methods
+    data_recursion, parameter_combos = args
+    actual_ccp, actual_W = ccp_fun(data_recursion)
+    # estimate success rates
+    T = 10
+    success_rates = np.zeros((T,)) 
+    success_rates[0:T-1] = p_acpt_fun(data_recursion)
+    # replace nan to 0
+    success_rates = [x if np.isnan(x)==False else 0 for x in success_rates]
+    # grid search for minimum distance estimation
+    estimatorNewRecursion = functools.partial(estimatorRecursion, actual_ccp=actual_ccp, 
+                            success_rates=success_rates, actual_W=actual_W)
+    obj = [estimatorNewRecursion(item) for item in parameter_combos]
+    # find parameters that gives the minimum distance
+    search_grid_sol = list(parameter_combos)[np.argmin(obj)]
+    return search_grid_sol
+
+def multiBootstrap(args, nprocs):
+    # based on "https://eli.thegreenplace.net/2012/01/16/
+    # python-parallelizing-cpu-bound-tasks-with-multiprocessing/"
+    def worker(args, out_q):
+        outlist = []
+        for arg in args:
+            coefficients = estimationRecursionGrid(arg)
+            outlist += [coefficients]
+        out_q.put(outlist)
+    out_q = Queue()
+    procs = []
+    chunksize = len(args)//nprocs
+    for i in range(nprocs):
+        chunk = args[i*chunksize:(i+1)*chunksize]
+        p = Process(target=worker,
+                args=(chunk, out_q))
+        procs.append(p)
+        p.start()
+    # Collect all results into a single result list
+    resultlist = []
+    for i in range(nprocs):
+        resultlist += [out_q.get()]
+    # Wait for all worker processes to finish
+    for p in procs:
+        p.join()
+    return resultlist
+
 if __name__=="__main__":
     ######## RECURSION VERSION OF ESTIMATION
     data_recursion = pd.read_pickle('data_recursion.pkl')
@@ -123,7 +184,6 @@ if __name__=="__main__":
     theta0_vec = np.linspace(-1,0,15)
     theta1_vec = np.linspace(0,2,15)
     discount_vec = np.linspace(0.85,0.95,3)
-
     start = time.time()
     obj = list(map(functools.partial(estimatorIteration,actual_ccp,success_rates),
                    itertools.product(theta0_vec,theta1_vec,discount_vec)))
@@ -131,7 +191,7 @@ if __name__=="__main__":
     end = time.time()
     print("The solution from the search-grid algorithm is :{}.\n \
             It took a total of {} seconds to compute".format(search_grid_sol,np.round(end-start),2))
-    # Bayesian optimization
+    ### Bayesian optimization
     from hyperopt import fmin, hp, tpe, Trials
     tpe_trials = Trials()
     tpe_algo = tpe.suggest
@@ -139,3 +199,25 @@ if __name__=="__main__":
     estimatorNew = functools.partial(estimatorIteration,actual_ccp,success_rates)
     best = fmin(fn = estimatorNew, space = space, algo=tpe.suggest, max_evals = 1000)
     print(best)
+    
+    ######## ESTIMATE STANDARD ERRORS BY BOOTSTRAPPING
+    n_bootstrap = 2**7
+    ## with multiprocessing
+    from multiprocessing import cpu_count, Process, Queue
+    parameter_combos = tuple(list(itertools.product(theta0_vec, theta1_vec, discount_vec)))
+    grid_size = len(parameter_combos)
+    N_individuals = 1000
+    args = [(getResample(data_recursion), parameter_combos) for i in range(n_bootstrap)]
+    start = time.time()
+    result = multiBootstrap(args, cpu_count())
+    print(result)
+    print("total time used for bootstrapping %d times of grid size %d is %.2f seconds" 
+          %(n_bootstrap, grid_size, time.time()-start))
+    # should be 32 items in bootstrap_coeffs
+    bootstrap_coeffs = list(itertools.chain(*result))
+    num_parameters = 3
+    bootstrap_coeffs = [np.array([x[i] for x in bootstrap_coeffs]) for i in range(num_parameters)]
+    bootstrap_means = tuple([np.mean(x) for x in bootstrap_coeffs])
+    print(bootstrap_means)
+    bootstrap_standard_errors = [standardErrors(x) for x in bootstrap_coeffs]
+    print(bootstrap_standard_errors)
