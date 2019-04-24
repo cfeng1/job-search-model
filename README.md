@@ -4,9 +4,8 @@ This project is a quick overview of how to simulate and estimate a dynamic struc
 
 - Presentation with more detailed explanation of estimation procedure: 
   (Folder: presentation)
-  - presentation/estimation_presentation.slides.html
-  (*You might want to download it in order to view the math formula.*)
-  - presentation/estimation_presentation.ipynb
+  - [HTML: presentation/estimation_presentation.slides.html](https://cfeng1.github.io/estimation_presentation.html)
+  - Jupyter notebook: presentation/estimation_presentation.ipynb
 
 - Estimation: 
   - Recursion simulation: data_simulation_iteration_version.py
